@@ -3,7 +3,7 @@ services:
   fe-app:
     image: registry.cn-hangzhou.aliyuncs.com/xiaochen_image/xiaochen:aaa
     ports:
-      - 80:80
+      - 81:81
     depends_on:
       - nest-app
     networks:

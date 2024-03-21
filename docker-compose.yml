@@ -1,9 +1,19 @@
 version: '3.8'
 services:
   fe-app:
+    # image: fe-container:first
     image: registry.cn-hangzhou.aliyuncs.com/xiaochen_image/xiaochen:aaa
     ports:
       - 81:81
+    depends_on:
+      - nest-app
+    networks:
+      - common-network
+  user-app:
+    # image: fe-container:first
+    image: registry.cn-hangzhou.aliyuncs.com/xiaochen_image/xiaochen:bbb
+    ports:
+      - 82:82
     depends_on:
       - nest-app
     networks:

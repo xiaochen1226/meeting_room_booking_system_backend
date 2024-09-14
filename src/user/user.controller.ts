@@ -8,8 +8,11 @@ import {
   Inject,
   Post,
   Query,
+  Req,
+  Res,
   UnauthorizedException,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from './user.service';
@@ -37,6 +40,8 @@ import { UserListVo } from './vo/user-list.vo';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as path from 'path';
 import { storage } from 'src/my-file-storage';
+import { AuthGuard } from '@nestjs/passport';
+import { Response } from 'express';
 
 @ApiTags('用户管理模块')
 @Controller('user')
@@ -117,9 +122,10 @@ export class UserController {
     description: '用户信息和token',
     type: LoginUserVo,
   })
+  @UseGuards(AuthGuard('local'))
   @Post('login')
-  async userLogin(@Body() loginUser: LoginUserDto) {
-    const vo = await this.userService.login(loginUser, false);
+  async userLogin(@UserInfo() vo: LoginUserVo) {
+    // const vo = await this.userService.login(loginUser, false);
 
     vo.accessToken = this.jwtService.sign(
       {
@@ -250,6 +256,184 @@ export class UserController {
     }
   }
 
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  async googleAuth() {}
+
+  @Get('callback/google')
+  @UseGuards(AuthGuard('google'))
+  async googleAuthRedirect(@Req() req, @Res() res: Response) {
+    if (!req.user) {
+      throw new BadRequestException('google 登录失败');
+    }
+
+    const foundUser = await this.userService.findUserByEmail(req.user.email);
+    let vo;
+
+    if (foundUser) {
+      vo = new LoginUserVo();
+      vo.userInfo = {
+        id: foundUser.id,
+        username: foundUser.username,
+        nickName: foundUser.nickName,
+        email: foundUser.email,
+        phoneNumber: foundUser.phoneNumber,
+        headPic: foundUser.headPic,
+        createTime: foundUser.createTime.getTime(),
+        isFrozen: foundUser.isFrozen,
+        isAdmin: foundUser.isAdmin,
+        roles: foundUser.roles.map((item) => item.name),
+        permissions: foundUser.roles.reduce((arr, item) => {
+          item.permissions.forEach((permission) => {
+            if (arr.indexOf(permission) === -1) {
+              arr.push(permission);
+            }
+          });
+          return arr;
+        }, []),
+      };
+    } else {
+      const user = await this.userService.registerByGoogleInfo(
+        req.user.email,
+        req.user.firstName + ' ' + req.user.lastName,
+        req.user.picture,
+      );
+
+      vo = new LoginUserVo();
+      vo.userInfo = {
+        id: user.id,
+        username: user.username,
+        nickName: user.nickName,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        headPic: user.headPic,
+        createTime: user.createTime.getTime(),
+        isFrozen: user.isFrozen,
+        isAdmin: user.isAdmin,
+        roles: [],
+        permissions: [],
+      };
+    }
+    vo.accessToken = this.jwtService.sign(
+      {
+        userId: vo.userInfo.id,
+        username: vo.userInfo.username,
+        email: vo.userInfo.email,
+        roles: vo.userInfo.roles,
+        permissions: vo.userInfo.permissions,
+      },
+      {
+        expiresIn:
+          this.configService.get('jwt_access_token_expires_time') || '30m',
+      },
+    );
+
+    vo.refreshToken = this.jwtService.sign(
+      {
+        userId: vo.userInfo.id,
+      },
+      {
+        expiresIn:
+          this.configService.get('jwt_refresh_token_expres_time') || '7d',
+      },
+    );
+
+    res.cookie('userInfo', JSON.stringify(vo.userInfo));
+    res.cookie('accessToken', vo.accessToken);
+    res.cookie('refreshToken', vo.refreshToken);
+
+    res.redirect('http://39.108.118.4:82');
+  }
+
+  @Get('github')
+  @UseGuards(AuthGuard('github'))
+  async githubAuth() {}
+
+  @Get('callback/github')
+  @UseGuards(AuthGuard('github'))
+  async githubAuthRedirect(@Req() req, @Res() res: Response) {
+    if (!req.user) {
+      throw new BadRequestException('github 登录失败');
+    }
+
+    const foundUser = await this.userService.findUserByEmail(req.user.email);
+    let vo;
+
+    if (foundUser) {
+      vo = new LoginUserVo();
+      vo.userInfo = {
+        id: foundUser.id,
+        username: foundUser.username,
+        nickName: foundUser.nickName,
+        email: foundUser.email,
+        phoneNumber: foundUser.phoneNumber,
+        headPic: foundUser.headPic,
+        createTime: foundUser.createTime.getTime(),
+        isFrozen: foundUser.isFrozen,
+        isAdmin: foundUser.isAdmin,
+        roles: foundUser.roles.map((item) => item.name),
+        permissions: foundUser.roles.reduce((arr, item) => {
+          item.permissions.forEach((permission) => {
+            if (arr.indexOf(permission) === -1) {
+              arr.push(permission);
+            }
+          });
+          return arr;
+        }, []),
+      };
+    } else {
+      const user = await this.userService.registerByGithubInfo(
+        req.user.email,
+        req.user.username,
+        req.user.picture,
+      );
+
+      vo = new LoginUserVo();
+      vo.userInfo = {
+        id: user.id,
+        username: user.username,
+        nickName: user.nickName,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        headPic: user.headPic,
+        createTime: user.createTime.getTime(),
+        isFrozen: user.isFrozen,
+        isAdmin: user.isAdmin,
+        roles: [],
+        permissions: [],
+      };
+    }
+    vo.accessToken = this.jwtService.sign(
+      {
+        userId: vo.userInfo.id,
+        username: vo.userInfo.username,
+        email: vo.userInfo.email,
+        roles: vo.userInfo.roles,
+        permissions: vo.userInfo.permissions,
+      },
+      {
+        expiresIn:
+          this.configService.get('jwt_access_token_expires_time') || '30m',
+      },
+    );
+
+    vo.refreshToken = this.jwtService.sign(
+      {
+        userId: vo.userInfo.id,
+      },
+      {
+        expiresIn:
+          this.configService.get('jwt_refresh_token_expres_time') || '7d',
+      },
+    );
+
+    res.cookie('userInfo', JSON.stringify(vo.userInfo));
+    res.cookie('accessToken', vo.accessToken);
+    res.cookie('refreshToken', vo.refreshToken);
+
+    res.redirect('http://39.108.118.4:82');
+  }
+
   @ApiQuery({
     name: 'refreshToken',
     type: String,
@@ -339,7 +523,9 @@ export class UserController {
   })
   @Post(['update_password', 'admin/update_password'])
   async updatePasswrod(@Body() passwordDto: UpdateUserPasswordDto) {
-    return await this.userService.updatePassword(passwordDto);
+    const res = await this.userService.updatePassword(passwordDto);
+    this.redisService.del(`update_user_captcha_${passwordDto.email}`);
+    return res;
   }
 
   @ApiQuery({
@@ -388,7 +574,9 @@ export class UserController {
     @UserInfo('userId') userId: number,
     @Body() updateUserDto: UpdateUserDto,
   ) {
-    return await this.userService.update(userId, updateUserDto);
+    const res = await this.userService.update(userId, updateUserDto);
+    this.redisService.del(`update_user_captcha_${updateUserDto.email}`);
+    return res;
   }
 
   @ApiBearerAuth()

@@ -8,6 +8,8 @@ import { UnloginFilter } from './unlogin.filter';
 import { CustomExceptionFilter } from './custom-exception.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import * as cookieParser from 'cookie-parser';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -23,6 +25,8 @@ async function bootstrap() {
 
   app.enableCors();
 
+  app.use(cookieParser());
+
   const config = new DocumentBuilder()
     .setTitle('会议室预定系统')
     .setDescription('api 接口文档')
@@ -36,6 +40,7 @@ async function bootstrap() {
   SwaggerModule.setup('api-doc', app, document);
 
   const configService = app.get(ConfigService);
+  app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
   await app.listen(configService.get('nest_server_port'));
 }
 bootstrap();

@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from './entites/user.entity';
+import { LoginType, User } from './entites/user.entity';
 import { Like, Repository } from 'typeorm';
 import { RegisterUserDto } from './dto/register.dto';
 import { RedisService } from 'src/redis/redis.service';
@@ -69,6 +69,43 @@ export class UserService {
     }
   }
 
+  async findUserByEmail(email: string) {
+    const user = await this.userReposityory.findOne({
+      where: {
+        email: email,
+        isAdmin: false,
+      },
+      relations: ['roles', 'roles.permissions'],
+    });
+    return user;
+  }
+
+  async registerByGoogleInfo(email: string, nickName: string, headPic: string) {
+    const newUser = new User();
+    newUser.email = email;
+    newUser.nickName = nickName;
+    newUser.headPic = headPic;
+    newUser.password = '';
+    newUser.username = email + Math.random().toString().slice(2, 10);
+    newUser.loginType = LoginType.GOOGLE;
+    newUser.isAdmin = false;
+
+    return this.userReposityory.save(newUser);
+  }
+
+  async registerByGithubInfo(email: string, nickName: string, headPic: string) {
+    const newUser = new User();
+    newUser.email = email;
+    newUser.nickName = nickName;
+    newUser.headPic = headPic;
+    newUser.password = '';
+    newUser.username = email + Math.random().toString().slice(2, 10);
+    newUser.loginType = LoginType.GITHUB;
+    newUser.isAdmin = false;
+
+    return this.userReposityory.save(newUser);
+  }
+
   // async initData() {
   //   const user1 = new User();
   //   user1.username = 'zhangsan';
@@ -113,6 +150,7 @@ export class UserService {
     const user = await this.userReposityory.findOne({
       where: {
         username: loginUserDto.username,
+        loginType: LoginType.USERNAME_PASSWORD,
         isAdmin,
       },
       relations: ['roles', 'roles.permissions'],
